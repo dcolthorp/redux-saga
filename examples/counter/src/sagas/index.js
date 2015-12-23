@@ -35,4 +35,4 @@ function* onBoarding(io) {
   yield put(showCongratulation())
 }
 
-export default [incrementAsync, onBoarding]
+export default [incrementAsync]

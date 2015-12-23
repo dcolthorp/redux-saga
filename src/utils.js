@@ -25,3 +25,7 @@ export function remove(array, item) {
   if(index >= 0)
     array.splice(index, 1)
 }
+
+export function autoIncrementer(seed = 1) {
+  return () => seed++
+}

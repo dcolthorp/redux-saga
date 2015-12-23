@@ -1,13 +1,28 @@
-import { is, check, TASK } from './utils'
+import { noop, is, check, autoIncrementer, TASK } from './utils'
 import { as, matcher } from './io'
+import {
+  sagaStarted, sagaTerminated, sagaAborted,
+  effectTriggered, effectResolved, effectRejected
+} from './monitorActions'
 
 export const NOT_ITERATOR_ERROR = "proc first argument must be an iterator"
 
-export default function proc(iterator, subscribe=()=>()=>{}, dispatch=()=>{}) {
+const nextTaskId = autoIncrementer()
+const nextEffectId = autoIncrementer()
+
+export default function proc(
+  iterator,
+  subscribe=()=>()=>{},
+  dispatch=()=>{},
+  parentId = 0,
+  monitor = noop,
+  name, args
+) {
 
   check(iterator, is.iterator, NOT_ITERATOR_ERROR)
 
   let deferredInput, deferredEnd
+  let taskId = nextTaskId()
   const canThrow = is.throw(iterator)
 
   const endP = new Promise((resolve, reject) => deferredEnd = {resolve, reject})
@@ -17,12 +32,13 @@ export default function proc(iterator, subscribe=()=>()=>{}, dispatch=()=>{}) {
       deferredInput.resolve(input)
   })
 
-  next()
   iterator._isRunning = true
+  monitor(sagaStarted(name, args, taskId, parentId))
+  next()
+
   return endP
 
-  function next(arg, isError) {
-    //console.log('next', arg, isError)
+  function next(arg, isError, effId) {
     deferredInput = null
     try {
       if(isError && !canThrow)
@@ -30,14 +46,24 @@ export default function proc(iterator, subscribe=()=>()=>{}, dispatch=()=>{}) {
       const result = isError ? iterator.throw(arg) : iterator.next(arg)
 
       if(!result.done) {
-        //console.log('yield', name, result.value)
-        runEffect(result.value).then(next, err => next(err, true))
+        const effectId = nextEffectId()
+        monitor( effectTriggered(taskId, effectId, result.value) )
+        runEffect(result.value).then(
+          response => {
+            monitor( effectResolved(effectId, response) )
+            return next(response)
+          },
+          error => {
+            monitor( effectRejected(effectId, error) )
+            return next(error, true)
+          }
+        )
       } else {
-        //console.log('return', name, result.value)
         iterator._isRunning = false
         iterator._result = result.value
         unsubscribe()
         deferredEnd.resolve(result.value)
+        monitor(sagaTerminated(taskId, result.value))
       }
     } catch(err) {
       //console.log('catch', name, err)
@@ -45,6 +71,7 @@ export default function proc(iterator, subscribe=()=>()=>{}, dispatch=()=>{}) {
       iterator._error = err
       unsubscribe()
       deferredEnd.reject(err)
+      monitor(sagaAborted(taskId, error))
     }
   }
 

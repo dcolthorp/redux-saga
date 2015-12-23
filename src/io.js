@@ -1,6 +1,5 @@
 import { is, kTrue, TASK, check } from './utils'
 
-
 export const CALL_FUNCTION_ARG_ERROR = "io.call first argument must be a function"
 export const CPS_FUNCTION_ARG_ERROR = "io.cps first argument must be a function"
 export const FORK_ARG_ERROR = "io.fork first argument must be a generator function or an iterator"
