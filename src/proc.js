@@ -106,7 +106,7 @@ export default function proc(
   function runCallEffect(fn, args) {
     return !is.generator(fn)
       ? Promise.resolve( fn(...args) )
-      : proc(fn(...args), subscribe, dispatch)
+      : proc(fn(...args), subscribe, dispatch, taskId, monitor, fn.name, args)
   }
 
   function runCPSEffect(fn, args) {
@@ -131,15 +131,15 @@ export default function proc(
         return ( yield is.func(task) ? task(...args) : task )
       }()
     }
-
-    const _done = proc(_iterator, subscribe, dispatch)
+    const name = _generator || is.func(task) ? task.name : 'anonymous'
+    const _done = proc(_iterator, subscribe, dispatch, taskId, monitor, name, args)
 
     const taskDesc = {
       [TASK]: true,
       _generator,
       _iterator,
       _done,
-      name : _generator && _generator.name,
+      name,
       isRunning: () => _iterator._isRunning,
       result: () => _iterator._result,
       error: () => _iterator._error

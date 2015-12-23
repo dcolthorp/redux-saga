@@ -5,9 +5,19 @@ import createLogger from 'redux-logger'
 import rootReducer from '../reducers'
 import sagas from '../sagas'
 
+function without(obj, prop) {
+  const res = {...obj}
+  delete res[prop]
+  return res
+}
+
+function logMonitor(effect) {
+  console.log(effect.type, without(effect, 'type'))
+}
+
+
 const createStoreWithMiddleware = applyMiddleware(
-  createLogger(),
-  sagaMiddleware(...sagas)
+  sagaMiddleware(sagas, logMonitor)
 )(createStore)
 
 export default function configureStore(initialState) {

@@ -5,14 +5,15 @@ import { actionDispatched } from './monitorActions'
 
 export const SAGA_NOT_A_GENERATOR_ERROR = "Saga must be a Generator function"
 
-export default (sagas, monitor = noop) => ({getState, dispatch}) => {
+export default (sagas, monitors = []) => ({getState, dispatch}) => {
 
   const cbs = []
   sagas = is.array(sagas) ? sagas : [sagas]
+  monitors = is.array(monitors) ? monitors : [monitors]
   runAllSagas()
 
   return next => action => {
-    monitor( actionDispatched(action) )
+    monitors.forEach( m => m(actionDispatched(action)) )
     const result = next(action) // hit reducers
     cbs.forEach(cb => cb(action))
     return result;
@@ -28,11 +29,15 @@ export default (sagas, monitor = noop) => ({getState, dispatch}) => {
         subscribe,
         dispatch,
         0,
-        monitor,
+        dispatchEffectToMonitors,
         saga.name,
         []
       )
     })
+  }
+
+  function dispatchEffectToMonitors(effect) {
+    monitors.forEach(m => m(effect))
   }
 
   function subscribe(cb) {
